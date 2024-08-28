@@ -1,0 +1,193 @@
+import numpy as np
+
+def worker_grove(id, secret, q_request, q_reply):
+
+    Radius=1
+    log=False
+    dodgeDistance=100
+    V_MIN =  10.0
+    V_MAX =  42.0
+    A_MAX = 100.0
+   
+    #fragt nach den Grenzen der Box und gibt sie zurück
+    def getBox():
+        q_request.put(('GET_BOX', id))
+        box=q_reply.get()[1]
+        return box
+
+    #gibt dem eigenen Puck einen Namen
+    def setName():
+        name="Adrian"
+        q_request.put(('SET_NAME', name, secret, id))
+        x=q_reply.get()[1]
+        return x
+
+    #gibt die verbliebene Anzahl der Pucks auf dem dem Spielfeld zurück
+    def getNumberOfPucks():
+        q_request.put(('GET_SIZE', id))
+        n=q_reply.get()[1]
+        return n
+
+    #gibt verschiedene Attribute aller verbliebenen Pucks zurück
+    def getSpeedPositionAndAccelerationOfAllPucks(n):
+        for i in range (0, n-1):
+            q_request.put(('GET_PUCK', i, id))
+            x=q_reply.get()[1]
+        return x
+
+    #gibt verschiedene Attribute von Puck "n" zurück
+    def getSpeedPositionAndAccelerationOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x=q_reply.get()[1]
+        return x
+
+    def getFuelOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x=q_reply.get()[1]
+        fuel = x.get_fuel()
+        return fuel
+
+    #weißt dem eigenen Puck eine Beschleunigung zu
+    def setAcceleration(b):
+        q_request.put(('SET_ACCELERATION', b, secret, id))
+        x=q_reply.get()[1]
+        return x
+
+    #gibt die Position des eigenen Pucks zurück
+    def getPositionOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x=q_reply.get()[1]
+        position = x.get_position()
+        return position
+
+    #gibt die Position aller Pucks zurück
+    def getPositionOfAllPucks(n):
+        for i in range (0, n-1):
+            q_request.put(('GET_PUCK', i, id))
+            x=q_reply.get()[1]
+            position = x.get_position()
+        return position
+
+    #gibt die Position eines bestimmten Pucks n zurück
+    def getPositionOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x=q_reply.get()[1]
+        position = x.get_position()
+        return position
+
+    #gibt die Position meines Pucks zurück
+    def getVelocityOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x=q_reply.get()[1]
+        velocity = x.get_velocity()
+        return velocity
+    
+    #gibt die Geschwindigkeit des Pucks "n" zurück
+    def getVelocityOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x=q_reply.get()[1]
+        velocity = x.get_velocity()
+        return velocity
+
+    #gibt die Beschleunigung von meinem Puck zurück
+    def getAccelerationOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x=q_reply.get()[1]
+        acceleration = x.get_acceleration()
+        return acceleration
+
+    #gibt die Beschleunigung von Puck n zurück
+    def getAccelerationOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x=q_reply.get()[1]
+        acceleration = x.get_acceleration()
+        return acceleration
+
+    
+
+    #gibt den Puck mit dem geringsten Abstand und seinen Abstand zurück
+    def getDistanceToNearestPuck(n):
+        minDistance=1000
+        for i in range (0, n-1):
+            if i!=id:
+                x=getSpeedPositionAndAccelerationOfAPuck(i)
+                if x is not None:
+                    distance = np.linalg.norm(getPositionOfMyPuck()-getPositionOfAPuck(i))
+                    if distance<minDistance:
+                        minDistance=distance
+                        idOtherPuck=i
+        if log:
+            print("my id:", id, "Distance to nearest Puck", idOtherPuck, minDistance)
+        return idOtherPuck, minDistance
+
+    #gibt die Geschwindigkeit des nächsten Pucks zurück
+    def getVelocityOfNearestPuck():
+        x=getDistanceToNearestPuck(NumberOfPucks)
+        y=x[0]
+        velocity=getVelocityOfAPuck(y)
+        return velocity
+
+    #gibt geringsten Abstand zum nächsten Puck und seine id zurück
+    def berechneGeringstenAbstandNachBestimmterZeitZuNächstemPuck():
+        puckN=getDistanceToNearestPuck(NumberOfPucks)[0]
+        sMyPuck=getPositionOfMyPuck()
+        vMyPuck=getVelocityOfMyPuck()
+        sPuckN=getPositionOfAPuck(puckN)
+        vPuckN=getVelocityOfAPuck(puckN)
+        deltaS=sMyPuck-sPuckN
+        deltaV=vMyPuck-vPuckN
+        tca=-(deltaS*deltaV)/(deltaV**2)
+        myPositionAtCLosest=np.linalg.norm(sMyPuck+vMyPuck*tca)
+        otherPositionAtCLosest=np.linalg.norm(sPuckN+vPuckN*tca)
+        closest=myPositionAtCLosest-otherPositionAtCLosest
+        return puckN, closest
+
+    def dodgeOtherPuck2():
+        PuckNAndClosest=berechneGeringstenAbstandNachBestimmterZeitZuNächstemPuck()
+        Abstand=PuckNAndClosest[1]
+        PuckN=PuckNAndClosest[0]
+        if Abstand<4*Radius:
+            vektorMyPuck=getVelocityOfMyPuck()
+            vektorOtherPuck=getVelocityOfAPuck(PuckN)
+            skalarprodukt = np.dot(vektorMyPuck, vektorOtherPuck)
+            speedMy=np.linalg.norm(vektorMyPuck)
+            speedOther=np.linalg.norm(vektorOtherPuck)
+            angleRadians=np.arccos(skalarprodukt/(speedMy*speedOther))
+            angle = np.degrees(angleRadians)
+            if angle<=90 or angle>=270:
+                setAcceleration(vektorOtherPuck/(np.linalg.norm(vektorOtherPuck))*(A_MAX))
+            else:
+                beschleunigungvektor = vektorMyPuck[::-1]
+                setAcceleration(beschleunigungvektor/(np.linalg.norm(beschleunigungvektor))*(A_MAX))
+        
+        
+
+    #weicht dem nächsten Puck aus
+    def dodgeOtherPuck1():
+        puckAndDistance=getDistanceToNearestPuck(NumberOfPucks)
+        distance=puckAndDistance[1]
+        puck=puckAndDistance[0]
+        if distance<dodgeDistance:
+            escape_vector = -getVelocityOfAPuck(puck)
+            escape_vector = escape_vector/np.linalg.norm(escape_vector) * (A_MAX/4)
+            setAcceleration(escape_vector)
+
+    #verringert die Geschwindigkeit, falls zu schnell und beschleunigt, falls zu langsam
+    def speedControl():     
+        velocity=np.linalg.norm(getVelocityOfMyPuck())
+        if velocity>V_MAX*0.8:
+            deceleration = -(getVelocityOfMyPuck()/np.linalg.norm(getVelocityOfMyPuck()))*A_MAX*0.4
+            setAcceleration(deceleration)
+        elif velocity<V_MIN*1.2:
+            acceleration = (getVelocityOfMyPuck()/np.linalg.norm(getVelocityOfMyPuck()))*A_MAX*0.4
+            setAcceleration(acceleration)
+    
+    NumberOfPucks=getNumberOfPucks()
+    setName()
+    box=getBox()
+    while True:
+        dodgeOtherPuck2()
+        speedControl()
+        fuel=getFuelOfMyPuck()
+        if fuel==0.0:
+            print("no fuel")
