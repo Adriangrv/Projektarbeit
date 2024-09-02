@@ -1,0 +1,126 @@
+import numpy as np
+
+def worker_grove(id, secret, q_request, q_reply):
+
+    #vorgegebene Werte
+    Radius = 1
+    V_MIN = 10.0
+    V_MAX = 42.0
+    A_MAX = 100.0
+
+    #gibt dem eigenen Puck einen Namen
+    def setName():
+        name = "Adrian"
+        q_request.put(('SET_NAME', name, secret, id))
+        q_reply.get()
+
+    #gibt Anzahl der Pucks zurück
+    def getNumberOfPucks():
+        q_request.put(('GET_SIZE', id))
+        n = q_reply.get()[1]
+        return n
+
+    #prüft ob Puck n noch lebt
+    def getIsAlive(n):
+        q_request.put(('GET_PUCK', n, id))
+        x = q_reply.get()[1]
+        alive = x.is_alive()
+        return alive
+
+    #gibt zurück ob Puck n noch lebt
+    def getPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x = q_reply.get()[1]
+        return x
+
+    #gibt die Position des eigenen Pucks zurück
+    def getPositionOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x = q_reply.get()[1]
+        position = x.get_position()
+        return position
+
+    #gibt die Position eines bestimmten Pucks n zurück
+    def getPositionOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x = q_reply.get()[1]
+        position = x.get_position()
+        return position
+
+    #gibt die Position meines Pucks zurück
+    def getVelocityOfMyPuck():
+        q_request.put(('GET_PUCK', id, id))
+        x = q_reply.get()[1]
+        velocity = x.get_velocity()
+        return velocity
+
+    #gibt die Geschwindigkeit des Pucks "n" zurück
+    def getVelocityOfAPuck(n):
+        q_request.put(('GET_PUCK', n, id))
+        x = q_reply.get()[1]
+        velocity = x.get_velocity()
+        return velocity
+
+    #weißt dem eigenen Puck eine Beschleunigung zu
+    def setAcceleration(b):
+        q_request.put(('SET_ACCELERATION', b, secret, id))
+        q_reply.get()
+
+
+
+    #die Anzahl der startenden Pucks wird festgehalten
+    NumberOfPucks=getNumberOfPucks()
+
+    #der Name des Pucks wird gesetzt
+    setName()
+
+    
+    #solange der Puck lebt läuft eine Schleife in der anderen Pucks ausgewichen wird und die Geschwindigkeit reguliert wird
+    while True:
+        
+        #gibt den Puck mit dem geringsten Abstand und seinen Abstand zurück
+        minDistance=1000
+        for i in range (0, NumberOfPucks):
+            if i != id:
+                x = getPuck(i)
+                if x is not None:
+                    distance = np.linalg.norm(getPositionOfMyPuck()-getPositionOfAPuck(i))
+                    if distance < minDistance:
+                        minDistance = distance
+                        puckN = i
+
+        #Berechnung des minimalen Abstands zweier Pucks
+        sMyPuck = getPositionOfMyPuck()
+        vMyPuck = getVelocityOfMyPuck()
+        sPuckN = getPositionOfAPuck(puckN)
+        vPuckN = getVelocityOfAPuck(puckN)
+        deltaS = sPuckN - sMyPuck
+        deltaV = vPuckN - vMyPuck
+        tca = -(np.dot(deltaS, deltaV)/(np.dot(deltaV, deltaV)))#Zeit bis zum kritischen Punkt
+        if tca > 0:
+            distanceVektor = deltaS+tca*deltaV
+            distanceAmount = np.linalg.norm(distanceVektor)#Abstand am kritischen Punkt
+
+            #Ausweichbeschleunigung berechnen und setzen, falls nötig
+            if distanceAmount < 4*Radius:
+                acc = (2*(2*(Radius+1.0)-distanceAmount))/tca**2
+                if acc > A_MAX:
+                    acc = A_MAX-1
+                resAcc = (acc/distanceAmount)*(-distanceVektor)
+                setAcceleration(resAcc)
+
+        #verringert die Geschwindigkeit, falls zu schnell und beschleunigt, falls zu langsam
+        velocity = np.linalg.norm(getVelocityOfMyPuck())
+        deltaV = (V_MAX-V_MIN)
+        if velocity > (V_MAX-10):
+            deceleration = -(getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*A_MAX
+            setAcceleration(deceleration)
+        elif velocity < (V_MIN+10):
+            acceleration = (getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*A_MAX
+            setAcceleration(acceleration)
+        setAcceleration(np.array([0.0, 0.0]))
+
+
+        #wenn der Puck nicht mehr lebt, wird das Programm abgebrochen
+        if getIsAlive(id)==False:
+            break
