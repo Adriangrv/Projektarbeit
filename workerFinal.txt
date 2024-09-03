@@ -111,7 +111,6 @@ def worker_grove(id, secret, q_request, q_reply):
 
         #verringert die Geschwindigkeit, falls zu schnell und beschleunigt, falls zu langsam
         velocity = np.linalg.norm(getVelocityOfMyPuck())
-        deltaV = (V_MAX-V_MIN)
         if velocity > (V_MAX-10):
             deceleration = -(getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*A_MAX
             setAcceleration(deceleration)
