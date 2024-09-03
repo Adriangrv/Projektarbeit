@@ -105,17 +105,17 @@ def worker_grove(id, secret, q_request, q_reply):
             if distanceAmount < 4*Radius:
                 acc = (2*(2*(Radius+1.0)-distanceAmount))/tca**2
                 if acc > A_MAX:
-                    acc = A_MAX
+                    acc = A_MAX-1
                 resAcc = (acc/distanceAmount)*(-distanceVektor)
                 setAcceleration(resAcc)
 
         #verringert die Geschwindigkeit, falls zu schnell und beschleunigt, falls zu langsam
         velocity = np.linalg.norm(getVelocityOfMyPuck())
         if velocity > (V_MAX-10):
-            deceleration = -(getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*A_MAX
+            deceleration = -(getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*(A_MAX-1)
             setAcceleration(deceleration)
         elif velocity < (V_MIN+10):
-            acceleration = (getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*A_MAX
+            acceleration = (getVelocityOfMyPuck()/(np.linalg.norm(getVelocityOfMyPuck())))*(A_MAX-1)
             setAcceleration(acceleration)
         setAcceleration(np.array([0.0, 0.0]))
 
